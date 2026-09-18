@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Sparkles,
@@ -50,7 +50,7 @@ export const PatientDetailPage: React.FC = () => {
     braces: "Fixed Braces",
   };
 
-  const finalStage = patient.stages[patient.stages.length - 1];
+  const finalStage = patient.stages && patient.stages.length > 0 ? patient.stages[patient.stages.length - 1] : undefined;
 
   return (
     <div className="space-y-6">

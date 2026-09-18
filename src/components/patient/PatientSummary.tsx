@@ -1,5 +1,5 @@
-﻿import React from "react";
-import { Link } from "react-router-dom";
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   Calendar,
@@ -8,18 +8,35 @@ import {
   FileText,
   PlusCircle,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { Patient } from "../../types";
+import { patientService } from "../../services/patientService";
 
 interface PatientSummaryProps {
   patient: Patient;
   onOpenSittingModal?: () => void;
+  onDelete?: () => void;
 }
 
 export const PatientSummary: React.FC<PatientSummaryProps> = ({
   patient,
   onOpenSittingModal,
+  onDelete,
 }) => {
+  const navigate = useNavigate();
+
+  const handleDelete = () => {
+    if (window.confirm(`Are you sure you want to permanently delete patient ${patient.name} (${patient.id})? This cannot be undone.`)) {
+      patientService.delete(patient.id);
+      if (onDelete) {
+        onDelete();
+      } else {
+        navigate("/patients");
+      }
+    }
+  };
+
   const treatmentLabels: Record<string, string> = {
     clear_aligners: "Clear Aligners",
     dental_veneers: "Dental Veneers",
@@ -139,6 +156,15 @@ export const PatientSummary: React.FC<PatientSummaryProps> = ({
             >
               <FileText className="w-4 h-4" />
             </Link>
+
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex items-center justify-center p-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition-colors"
+              title="Delete Patient Record"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

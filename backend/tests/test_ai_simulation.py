@@ -34,3 +34,32 @@ def test_ai_batch_generation(client, auth_headers, sample_image_bytes):
     retry_res = client.post(f"/api/simulations/{first_sim_id}/retry", headers=auth_headers)
     assert retry_res.status_code == 200
     assert retry_res.json()["data"]["status"] == "completed"
+
+
+def test_direct_photographic_simulation(client, auth_headers, sample_image_bytes):
+    # 1. Create Patient
+    p = client.post("/api/patients", json={"name": "Direct Sim Patient"}, headers=auth_headers).json()["data"]
+    patient_id = p["id"]
+
+    # 2. Call direct simulation endpoint with custom treatment parameters
+    sim_res = client.post(
+        f"/api/patients/{patient_id}/simulation/",
+        json={
+            "treatment": {
+                "alignment": 0.7,
+                "spacing": 0.3,
+                "whitening": 0.8,
+                "tooth_length": 0.05,
+                "tooth_width": 0.0,
+                "smile_symmetry": 0.6,
+            }
+        },
+        headers=auth_headers,
+    )
+    assert sim_res.status_code == 200
+    res_data = sim_res.json()["data"]
+    assert res_data["status"] == "generated"
+    assert res_data["simulation_type"] == "potential_treatment_visualization"
+    assert res_data["simulation_image"].startswith("data:image/jpeg;base64,")
+    assert res_data["treatment"]["whitening"] == 0.8
+

@@ -46,3 +46,27 @@ class BatchSimulationResponse(BaseModel):
     total_stages: int
     simulations_queued: int
     simulations: List[SimulationStatusResponse]
+
+
+class TreatmentParamsSchema(BaseModel):
+    alignment: float = Field(0.5, ge=0.0, le=1.0, description="Tooth alignment/leveling correction (0.0 - 1.0)")
+    spacing: float = Field(0.2, ge=0.0, le=1.0, description="Interdental spacing/diastema reduction (0.0 - 1.0)")
+    whitening: float = Field(0.5, ge=0.0, le=1.0, description="Enamel shade lift (0.0 - 1.0)")
+    tooth_length: float = Field(0.0, ge=-0.2, le=0.2, description="Crown height modification (-0.2 to +0.2)")
+    tooth_width: float = Field(0.0, ge=-0.2, le=0.2, description="Crown width modification (-0.2 to +0.2)")
+    smile_symmetry: float = Field(0.5, ge=0.0, le=1.0, description="Midline bilateral symmetry harmonization (0.0 - 1.0)")
+
+
+class DirectSimulationRequest(BaseModel):
+    source_image: Optional[str] = Field(None, description="Source smile photograph (base64 or URL). If omitted, patient original photo is used.")
+    treatment: Optional[TreatmentParamsSchema] = Field(default_factory=TreatmentParamsSchema, description="Clinical treatment parameters.")
+    preset: Optional[str] = Field(None, description="Preset identifier (e.g. natural_whitening, whitening_alignment)")
+
+
+class DirectSimulationResponse(BaseModel):
+    simulation_image: str
+    status: str = "generated"
+    simulation_type: str = "potential_treatment_visualization"
+    treatment: TreatmentParamsSchema
+    error_message: Optional[str] = None
+

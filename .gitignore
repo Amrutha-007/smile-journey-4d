@@ -45,3 +45,11 @@ htmlcov/
 *.njsproj
 *.sln
 *.sw?
+
+# Local storage and test data
+backend/local_storage/
+local_storage/
+*.db
+*.sqlite
+*.sqlite3
+

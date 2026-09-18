@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   UploadCloud,
   CheckCircle2,
@@ -27,7 +27,55 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (!result) {
+          resolve("");
+          return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1000;
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(result);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          // Export as compressed JPEG (approx 60-120KB)
+          const compressed = canvas.toDataURL("image/jpeg", 0.82);
+          resolve(compressed);
+        };
+        img.onerror = () => resolve(result);
+        img.src = result;
+      };
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFile = async (file: File) => {
     setError(null);
     const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
@@ -36,37 +84,35 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     }
 
     // Simulate upload progress
-    setUploadProgress(15);
+    setUploadProgress(25);
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev === null) return null;
-        if (prev >= 90) {
+        if (prev >= 85) {
           clearInterval(interval);
-          return 90;
+          return 85;
         }
         return prev + 25;
       });
-    }, 80);
+    }, 60);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    try {
+      const compressedUrl = await compressImageFile(file);
+      clearInterval(interval);
+      setUploadProgress(100);
       setTimeout(() => {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setTimeout(() => {
-          setUploadProgress(null);
-          if (e.target?.result) {
-            onChange(e.target.result as string);
-          }
-        }, 200);
-      }, 350);
-    };
-    reader.onerror = () => {
+        setUploadProgress(null);
+        if (compressedUrl) {
+          onChange(compressedUrl);
+        } else {
+          setError("Error processing image. Please try another image.");
+        }
+      }, 180);
+    } catch {
       clearInterval(interval);
       setUploadProgress(null);
       setError("Error reading image file. Please try another image.");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {

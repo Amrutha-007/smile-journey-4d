@@ -1,13 +1,14 @@
-﻿import React from "react";
+import React from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, Calendar, ChevronRight } from "lucide-react";
+import { Sparkles, Calendar, ChevronRight, Trash2 } from "lucide-react";
 import { Patient } from "../../types";
 
 interface PatientCardProps {
   patient: Patient;
+  onDelete?: (id: string) => void;
 }
 
-export const PatientCard: React.FC<PatientCardProps> = ({ patient }) => {
+export const PatientCard: React.FC<PatientCardProps> = ({ patient, onDelete }) => {
   const treatmentLabels: Record<string, string> = {
     clear_aligners: "Clear Aligners",
     dental_veneers: "Dental Veneers",
@@ -110,6 +111,21 @@ export const PatientCard: React.FC<PatientCardProps> = ({ patient }) => {
         >
           <ChevronRight className="w-4 h-4" />
         </Link>
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(patient.id);
+            }}
+            className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors"
+            title="Delete Patient Record"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

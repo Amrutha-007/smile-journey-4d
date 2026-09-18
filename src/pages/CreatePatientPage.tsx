@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   User,
@@ -92,34 +92,58 @@ export const CreatePatientPage: React.FC = () => {
     setIsAIModalOpen(true);
   };
 
-  const handleCompleteAIStages = (generatedStages: TreatmentStage[]) => {
-    setIsAIModalOpen(false);
+  const savePatientRecord = (stagesToSave: TreatmentStage[], destination: "simulation" | "detail" = "simulation") => {
+    if (!name.trim()) {
+      alert("Please enter the patient's full name in Step 1.");
+      setCurrentStep(1);
+      return;
+    }
 
-    // Save patient to database
+    if (!photoUrl) {
+      alert("Please upload or select a smile photograph first.");
+      return;
+    }
+
+    // Ensure baseline stage has photo and stages are properly initialized
+    const finalizedStages = stagesToSave.map((stage, idx) => ({
+      ...stage,
+      aiImageUrl: stage.aiImageUrl || (idx === 0 ? photoUrl : undefined),
+      actualPhotoUrl: idx === 0 ? photoUrl : stage.actualPhotoUrl,
+      status: stage.status || (idx === 0 ? "completed" : idx === 1 ? "current" : "upcoming"),
+    }));
+
     const newPatient = patientService.create({
-      name,
-      age,
+      name: name.trim(),
+      age: Number(age) || 25,
       gender,
-      phone,
-      email,
-      additionalNotes,
+      phone: phone.trim() || "+1 (555) 000-0000",
+      email: email.trim() || "patient@example.com",
+      additionalNotes: additionalNotes.trim(),
       dentalProblems: selectedProblems,
-      problemDescription,
+      problemDescription: problemDescription.trim() || "Clinical consultation and assessment.",
       treatment,
-      durationMonths,
-      sittings,
-      startDate,
+      durationMonths: Number(durationMonths) || 12,
+      sittings: Number(sittings) || 6,
+      startDate: startDate || new Date().toISOString().split("T")[0],
       customSittingDates: customSittingDates.length > 0 ? customSittingDates : undefined,
       originalPhotoUrl: photoUrl,
-      stages: generatedStages,
+      stages: finalizedStages,
       sittingsHistory: [],
       progress: 0,
       status: "Active",
       nextSittingDate: calculatedStages[1] ? calculatedStages[1].date : "Upcoming",
     });
 
-    // Navigate to showcase simulation screen!
-    navigate(`/patients/${newPatient.id}/simulation`);
+    if (destination === "detail") {
+      navigate(`/patients/${newPatient.id}`);
+    } else {
+      navigate(`/patients/${newPatient.id}/simulation`);
+    }
+  };
+
+  const handleCompleteAIStages = (generatedStages: TreatmentStage[]) => {
+    setIsAIModalOpen(false);
+    savePatientRecord(generatedStages, "simulation");
   };
 
   return (
@@ -476,15 +500,36 @@ export const CreatePatientPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-between pt-4 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setCurrentStep(3)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back</span>
             </button>
+
+            <div className="w-full sm:w-auto flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => savePatientRecord(calculatedStages, "detail")}
+                disabled={!photoUrl}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold shadow-2xs transition-all disabled:opacity-50"
+              >
+                <span>Save Patient Record</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => savePatientRecord(calculatedStages, "simulation")}
+                disabled={!photoUrl}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-semibold shadow-md shadow-sky-600/20 transition-all disabled:opacity-50"
+              >
+                <span>Save & View Simulation</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}

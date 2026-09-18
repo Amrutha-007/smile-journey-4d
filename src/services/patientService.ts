@@ -1,4 +1,4 @@
-﻿import { Patient, SittingRecord, TreatmentStage } from "../types";
+import { Patient, SittingRecord, TreatmentStage } from "../types";
 import { SAMPLE_PATIENT_IMAGES } from "./sampleImages";
 import { generateTreatmentTimeline } from "./timelineService";
 
@@ -401,24 +401,59 @@ const INITIAL_MOCK_PATIENTS: Patient[] = [
 ];
 
 export class PatientService {
+  private _memoryPatients: Patient[] | null = null;
+
   private getStorage(): Patient[] {
+    if (this._memoryPatients && this._memoryPatients.length > 0) {
+      return this._memoryPatients;
+    }
+
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      if (!data) {
-        this.setStorage(INITIAL_MOCK_PATIENTS);
-        return INITIAL_MOCK_PATIENTS;
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this._memoryPatients = parsed;
+          return parsed;
+        }
       }
-      return JSON.parse(data);
     } catch {
-      return INITIAL_MOCK_PATIENTS;
+      // Fallback
     }
+
+    this._memoryPatients = [...INITIAL_MOCK_PATIENTS];
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this._memoryPatients));
+    } catch {
+      // ignore
+    }
+    return this._memoryPatients;
   }
 
   private setStorage(patients: Patient[]): void {
+    // 1. Always update memory cache so current SPA session is 100% reliable
+    this._memoryPatients = patients;
+
+    // 2. Attempt localStorage persistence with quota overflow protection
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
     } catch (e) {
-      console.error("Failed to save to localStorage", e);
+      console.warn("Primary localStorage setItem failed (quota exceeded), applying storage compression...", e);
+      try {
+        const optimized = patients.map((p) => ({
+          ...p,
+          stages: p.stages.map((st, idx) => ({
+            ...st,
+            aiImageUrl:
+              st.aiImageUrl && st.aiImageUrl.length > 80000 && idx > 0 && idx < p.stages.length - 1
+                ? undefined
+                : st.aiImageUrl,
+          })),
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(optimized));
+      } catch (e2) {
+        console.warn("Storage fallback hit quota, keeping state in memory", e2);
+      }
     }
   }
 
@@ -427,13 +462,20 @@ export class PatientService {
   }
 
   getById(id: string): Patient | undefined {
-    return this.getStorage().find((p) => p.id === id);
+    if (!id) return undefined;
+    const cleanId = id.trim().toLowerCase();
+    return this.getStorage().find((p) => p.id && p.id.trim().toLowerCase() === cleanId);
   }
 
   create(patientData: Omit<Patient, "id" | "createdAt" | "updatedAt">): Patient {
-    const list = this.getStorage();
-    const nextIdNum = list.length + 1;
-    const newId = `PT-${String(nextIdNum).padStart(3, "0")}`;
+    const list = [...this.getStorage()];
+
+    // Generate unique ID based on highest existing number
+    const maxNum = list.reduce((max, p) => {
+      const match = p.id.match(/^PT-(\d+)$/i);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 0);
+    const newId = `PT-${String(maxNum + 1).padStart(3, "0")}`;
 
     const newPatient: Patient = {
       ...patientData,

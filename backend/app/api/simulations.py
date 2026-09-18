@@ -9,6 +9,9 @@ from app.schemas.simulation import (
     SimulationResponse,
     SimulationStatusResponse,
     BatchSimulationResponse,
+    TreatmentParamsSchema,
+    DirectSimulationRequest,
+    DirectSimulationResponse,
 )
 from app.schemas.common import APIResponse
 from app.api.deps import get_current_doctor
@@ -228,3 +231,57 @@ async def retry_simulation(
             ),
             message=f"Simulation retry failed: {err_str}"
         )
+
+
+@router.post(
+    "/api/patients/{patient_id}/simulation/",
+    response_model=APIResponse[DirectSimulationResponse]
+)
+async def direct_patient_simulation(
+    patient_id: str,
+    request: DirectSimulationRequest,
+    current_doctor: dict = Depends(get_current_doctor)
+):
+    """
+    Direct photographic dental treatment simulation endpoint.
+    Accepts customized clinical parameters and executes localized photographic
+    tooth modifications on the patient's original photo.
+    """
+    patient = patient_service.get_patient(patient_id, current_doctor["id"])
+    source_photo = request.source_image or patient.get("original_photo_url") or "placeholder_patient_smile.jpg"
+
+    ai_provider = get_ai_provider()
+    params = request.treatment.model_dump() if request.treatment else {
+        "alignment": 0.5,
+        "spacing": 0.2,
+        "whitening": 0.6,
+        "tooth_length": 0.0,
+        "tooth_width": 0.0,
+        "smile_symmetry": 0.5,
+    }
+
+    try:
+        sim_img, _ = await ai_provider.generate_smile_simulation(
+            image_url=source_photo,
+            treatment_type="clear_aligners",
+            stage_month=1,
+            stage_progress=50,
+            treatment_params=params,
+        )
+
+        return APIResponse(
+            success=True,
+            data=DirectSimulationResponse(
+                simulation_image=sim_img,
+                status="generated",
+                simulation_type="potential_treatment_visualization",
+                treatment=request.treatment or TreatmentParamsSchema(**params),
+            ),
+            message="Direct photographic simulation generated successfully."
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Simulation failed: {str(e)}"
+        )
+

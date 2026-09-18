@@ -1,160 +1,160 @@
 ﻿import { AISimulationInput, AISimulationOutput, TreatmentStage, TreatmentType } from "../types";
-import { SAMPLE_PATIENT_IMAGES, createDentalSmileSvg } from "./sampleImages";
+import {
+  simulatePhotographicSmile,
+  TreatmentParameters,
+  DentalSimulationResult,
+} from "./cvDentalService";
 
 /**
  * Builds treatment-specific AI generation prompt instructions
- * adhering strictly to the clinical specification.
+ * adhering strictly to clinical non-generative principles.
  */
 export function buildTreatmentPrompt(
   treatment: TreatmentType,
   stageName: string,
   stageMonth: number,
-  stageProgress: number
+  stageProgress: number,
+  params?: TreatmentParameters
 ): string {
-  const commonHeader = `Use the provided patient's photograph as the source image.
-Preserve the patient's identity, facial structure, skin tone, lips, hair, lighting and background.
-Modify primarily the visible teeth/smile region.
-Do not modify unrelated facial features.
-This is a visual simulation for communication and educational purposes, not a guaranteed clinical outcome.`;
+  const commonHeader = `SOURCE IMAGE: Original Patient Photograph.
+PRINCIPLE: Preserve the patient's identity, facial structure, skin tone, lips, gums, lighting, and background.
+TARGET REGION: Modify exclusively the visible teeth using localized computer-vision dental alignment and shade lifting.
+Do not generate a synthetic mouth, face, or cartoon illustration.
+This is a visual potential treatment simulation for clinical communication and education only.`;
+
+  const alignPct = params ? Math.round(params.alignment * 100) : stageProgress;
+  const whitenPct = params ? Math.round(params.whitening * 100) : Math.round(stageProgress * 0.7);
 
   if (treatment === "clear_aligners") {
     return `${commonHeader}
-
 TREATMENT: Clear Aligners
 STAGE: ${stageName} (Month ${stageMonth}, Progress: ${stageProgress}%)
-SIMULATION OBJECTIVES:
-- Simulate progressive orthodontic clear aligner tooth movement.
-- Alignment degree: ${stageProgress}% of total correction.
-- Gradual de-crowding of rotated maxillary central and lateral incisors.
-- Harmonious dental arch widening and leveling of the incisal edges.
-- Teeth should appear naturally integrated without artificial plastic sheen.`;
+SIMULATION PARAMETERS:
+- Progressive arch alignment: ${alignPct}%
+- Spacing correction: ${params ? Math.round(params.spacing * 100) : 30}%
+- Enamel shade lift: ${whitenPct}%
+- Incisal edge leveling and anterior arch de-crowding.`;
   }
 
   if (treatment === "dental_veneers") {
     return `${commonHeader}
-
 TREATMENT: Dental Veneers
 STAGE: ${stageName} (Month ${stageMonth}, Progress: ${stageProgress}%)
-SIMULATION OBJECTIVES:
-- Simulate porcelain veneer cosmetic smile rehabilitation.
-- Stage progress: ${stageProgress}%.
-- Correct incisal wear, micro-fractures, and deep discoloration.
-- Target shade: Natural Vita Bleach 3 / B1 with lifelike translucency in incisal third.
-- Golden proportion aesthetic symmetry across teeth #6 through #11.
-- Gingival margin zenith balance.`;
+SIMULATION PARAMETERS:
+- Aesthetic veneer harmonization: ${alignPct}%
+- Enamel shade lift (Vita BL2/B1): ${whitenPct}%
+- Golden proportion crown symmetry and incisal contour balance.`;
   }
 
-  // braces
+  // Braces
   return `${commonHeader}
-
 TREATMENT: Comprehensive Fixed Orthodontic Braces
 STAGE: ${stageName} (Month ${stageMonth}, Progress: ${stageProgress}%)
-SIMULATION OBJECTIVES:
-- Simulate orthodontic archwire progression and bracket engagement.
-- Progressive leveling and alignment of crowded anterior teeth.
-- Reduction of anterior rotation and overjet proportional to ${stageProgress}%.
-- ${stageProgress >= 90 ? "Bracket debonding simulation with final polished enamel." : "Low-profile aesthetic ceramic/metallic brackets."}`;
+SIMULATION PARAMETERS:
+- Archwire leveling and torque correction: ${alignPct}%
+- Anterior rotation reduction: ${alignPct}%
+- Enamel polishing: ${whitenPct}%.`;
 }
 
 /**
- * Core AI generation service function
+ * Calculates realistic clinical parameters from treatment type and stage progress.
+ */
+export function deriveParametersFromStage(
+  treatmentType: TreatmentType,
+  stageProgress: number
+): TreatmentParameters {
+  const progressRatio = Math.max(0, Math.min(100, stageProgress)) / 100;
+
+  if (treatmentType === "dental_veneers") {
+    return {
+      alignment: 0.35 + 0.65 * progressRatio,
+      spacing: 0.2 + 0.5 * progressRatio,
+      whitening: 0.25 + 0.65 * progressRatio,
+      toothLength: 0.04 * progressRatio,
+      toothWidth: 0.02 * progressRatio,
+      smileSymmetry: 0.3 + 0.6 * progressRatio,
+    };
+  }
+
+  if (treatmentType === "braces") {
+    return {
+      alignment: 0.15 + 0.85 * progressRatio,
+      spacing: 0.15 + 0.55 * progressRatio,
+      whitening: 0.1 + 0.35 * progressRatio,
+      toothLength: 0.02 * progressRatio,
+      toothWidth: 0,
+      smileSymmetry: 0.2 + 0.75 * progressRatio,
+    };
+  }
+
+  // Clear aligners default
+  return {
+    alignment: 0.12 + 0.88 * progressRatio,
+    spacing: 0.1 + 0.5 * progressRatio,
+    whitening: 0.15 + 0.55 * progressRatio,
+    toothLength: 0.03 * progressRatio,
+    toothWidth: 0,
+    smileSymmetry: 0.25 + 0.7 * progressRatio,
+  };
+}
+
+/**
+ * Core photographic dental simulation service function.
+ * Uses client-side computer vision on the original patient photograph.
  */
 export async function generateSmileSimulation(
-  input: AISimulationInput
-): Promise<AISimulationOutput> {
+  input: AISimulationInput,
+  customParams?: TreatmentParameters,
+  onStepProgress?: (step: string) => void
+): Promise<AISimulationOutput & { simulationResult?: DentalSimulationResult }> {
+  const params = customParams || deriveParametersFromStage(input.treatmentType, input.stageProgress);
+
   const promptUsed = buildTreatmentPrompt(
     input.treatmentType,
     input.stage,
     input.stageMonth,
-    input.stageProgress
+    input.stageProgress,
+    params
   );
 
-  // Artificial realistic AI inference latency (120ms - 400ms)
-  await new Promise((resolve) => setTimeout(resolve, 250 + Math.random() * 200));
+  try {
+    const simulationResult = await simulatePhotographicSmile(
+      input.patientImage,
+      params,
+      onStepProgress
+    );
 
-  let imageUrl = input.patientImage;
-
-  // Check if image is an SVG or pre-seeded
-  if (input.patientImage.includes("Ananya Menon")) {
-    const key = `month${input.stageMonth}` as keyof typeof SAMPLE_PATIENT_IMAGES.ananya.stages;
-    if (input.stageProgress === 0) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.ananya.stages.initial;
-    } else if (input.stageProgress >= 100) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.ananya.stages.final;
-    } else if (SAMPLE_PATIENT_IMAGES.ananya.stages[key]) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.ananya.stages[key];
-    } else {
-      imageUrl = createDentalSmileSvg({
-        patientName: "Ananya Menon",
-        stageLabel: `${input.stage} (${input.stageProgress}%)`,
-        crowdingLevel: Math.round(90 * (1 - input.stageProgress / 100)),
-        alignment: Math.round(15 + (85 * input.stageProgress) / 100),
-        whiteness: Math.round(20 + (78 * input.stageProgress) / 100),
-        skinTone: "#d99773",
-        lipColor: "#bd5366",
-        treatment: "Clear Aligners",
-      });
-    }
-  } else if (input.patientImage.includes("Rahul Kumar")) {
-    if (input.stageProgress === 0) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.rahul.stages.initial;
-    } else if (input.stageProgress >= 100) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.rahul.stages.final;
-    } else {
-      imageUrl = createDentalSmileSvg({
-        patientName: "Rahul Kumar",
-        stageLabel: `${input.stage} (${input.stageProgress}%)`,
-        crowdingLevel: Math.round(20 * (1 - input.stageProgress / 100)),
-        alignment: Math.round(60 + (40 * input.stageProgress) / 100),
-        whiteness: Math.round(5 + (95 * input.stageProgress) / 100),
-        skinTone: "#bf8360",
-        lipColor: "#a34552",
-        treatment: "Dental Veneers",
-      });
-    }
-  } else if (input.patientImage.includes("Meera S")) {
-    if (input.stageProgress === 0) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.meera.stages.initial;
-    } else if (input.stageProgress >= 100) {
-      imageUrl = SAMPLE_PATIENT_IMAGES.meera.stages.final;
-    } else {
-      imageUrl = createDentalSmileSvg({
-        patientName: "Meera S",
-        stageLabel: `${input.stage} (${input.stageProgress}%)`,
-        crowdingLevel: Math.round(80 * (1 - input.stageProgress / 100)),
-        alignment: Math.round(20 + (80 * input.stageProgress) / 100),
-        whiteness: Math.round(35 + (55 * input.stageProgress) / 100),
-        hasBraces: input.stageProgress < 90,
-        skinTone: "#e6b095",
-        lipColor: "#c96574",
-        treatment: "Braces",
-      });
-    }
-  } else {
-    // For custom uploaded photos: Procedural simulation overlay or SVG generation
-    imageUrl = createDentalSmileSvg({
-      patientName: "Patient Simulation",
-      stageLabel: `${input.stage} (${input.stageProgress}%)`,
-      crowdingLevel: Math.round(80 * (1 - input.stageProgress / 100)),
-      alignment: Math.round(25 + (75 * input.stageProgress) / 100),
-      whiteness: Math.round(25 + (70 * input.stageProgress) / 100),
-      hasBraces: input.treatmentType === "braces" && input.stageProgress < 90,
-      treatment:
-        input.treatmentType === "clear_aligners"
-          ? "Clear Aligners"
-          : input.treatmentType === "dental_veneers"
-          ? "Dental Veneers"
-          : "Braces",
-    });
+    return {
+      imageUrl: simulationResult.imageUrl,
+      stage: input.stage,
+      month: input.stageMonth,
+      status: "completed",
+      promptUsed,
+      simulationResult,
+    };
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    // If teeth cannot be detected, return source image and structured message
+    return {
+      imageUrl: input.patientImage,
+      stage: input.stage,
+      month: input.stageMonth,
+      status: "failed",
+      promptUsed,
+      error: errMsg,
+    } as AISimulationOutput;
   }
+}
 
-  return {
-    imageUrl,
-    stage: input.stage,
-    month: input.stageMonth,
-    status: "completed",
-    promptUsed,
-  };
+/**
+ * Executes a custom photographic simulation with direct dentist parameters.
+ */
+export async function generateCustomSmileSimulation(
+  patientImage: string,
+  params: TreatmentParameters,
+  onStepProgress?: (step: string) => void
+): Promise<DentalSimulationResult> {
+  return await simulatePhotographicSmile(patientImage, params, onStepProgress);
 }
 
 /**

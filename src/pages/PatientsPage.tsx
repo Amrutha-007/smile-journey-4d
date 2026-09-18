@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   UserPlus,
@@ -14,12 +14,20 @@ import { PatientTable } from "../components/dashboard/PatientTable";
 import { TreatmentType } from "../types";
 
 export const PatientsPage: React.FC = () => {
+  const [patients, setPatients] = useState(() => patientService.getAll());
   const [search, setSearch] = useState("");
   const [treatmentFilter, setTreatmentFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
-  const patients = patientService.getAll();
+  const handleDeletePatient = (id: string) => {
+    const target = patients.find((p) => p.id === id);
+    const name = target ? target.name : id;
+    if (window.confirm(`Are you sure you want to delete patient ${name}? This cannot be undone.`)) {
+      patientService.delete(id);
+      setPatients(patientService.getAll());
+    }
+  };
 
   const filteredPatients = patients.filter((p) => {
     const matchesSearch =
@@ -153,11 +161,11 @@ export const PatientsPage: React.FC = () => {
       ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPatients.map((patient) => (
-            <PatientCard key={patient.id} patient={patient} />
+            <PatientCard key={patient.id} patient={patient} onDelete={handleDeletePatient} />
           ))}
         </div>
       ) : (
-        <PatientTable patients={filteredPatients} />
+        <PatientTable patients={filteredPatients} onDelete={handleDeletePatient} />
       )}
     </div>
   );
