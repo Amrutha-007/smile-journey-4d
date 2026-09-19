@@ -1,0 +1,65 @@
+def test_ai_batch_generation(client, auth_headers, sample_image_bytes):
+    # 1. Create Patient and upload photo
+    p = client.post("/api/patients", json={"name": "AI Simulation Patient"}, headers=auth_headers).json()["data"]
+    patient_id = p["id"]
+
+    files = {"file": ("smile.jpg", sample_image_bytes, "image/jpeg")}
+    client.post(f"/api/patients/{patient_id}/photo", files=files, headers=auth_headers)
+
+    # 2. Create Treatment (Clear aligners, 6 months, 3 sittings)
+    t = client.post(f"/api/patients/{patient_id}/treatment", json={
+        "treatment_type": "clear_aligners",
+        "duration_months": 6,
+        "number_of_sittings": 3,
+        "start_date": "2026-09-18"
+    }, headers=auth_headers).json()["data"]["treatment"]
+    treatment_id = t["id"]
+
+    # 3. Trigger Batch AI Generation
+    gen_res = client.post(f"/api/treatments/{treatment_id}/generate-all", headers=auth_headers)
+    assert gen_res.status_code == 200
+    gen_data = gen_res.json()["data"]
+    assert gen_data["simulations_queued"] == 3  # 3 non-initial stages
+    assert all(sim["status"] == "completed" for sim in gen_data["simulations"])
+    assert all(sim["image_url"] is not None for sim in gen_data["simulations"])
+
+    # 4. Poll simulation status
+    first_sim_id = gen_data["simulations"][0]["id"]
+    status_res = client.get(f"/api/simulations/{first_sim_id}", headers=auth_headers)
+    assert status_res.status_code == 200
+    assert status_res.json()["data"]["status"] == "completed"
+    assert status_res.json()["data"]["simulation_type"] == "potential_treatment_visualization"
+
+    # 5. Test retry endpoint
+    retry_res = client.post(f"/api/simulations/{first_sim_id}/retry", headers=auth_headers)
+    assert retry_res.status_code == 200
+    assert retry_res.json()["data"]["status"] == "completed"
+
+
+def test_direct_photographic_simulation(client, auth_headers, sample_image_bytes):
+    # 1. Create Patient
+    p = client.post("/api/patients", json={"name": "Direct Sim Patient"}, headers=auth_headers).json()["data"]
+    patient_id = p["id"]
+
+    # 2. Call direct simulation endpoint with custom treatment parameters
+    sim_res = client.post(
+        f"/api/patients/{patient_id}/simulation/",
+        json={
+            "treatment": {
+                "alignment": 0.7,
+                "spacing": 0.3,
+                "whitening": 0.8,
+                "tooth_length": 0.05,
+                "tooth_width": 0.0,
+                "smile_symmetry": 0.6,
+            }
+        },
+        headers=auth_headers,
+    )
+    assert sim_res.status_code == 200
+    res_data = sim_res.json()["data"]
+    assert res_data["status"] == "generated"
+    assert res_data["simulation_type"] == "potential_treatment_visualization"
+    assert res_data["simulation_image"].startswith("data:image/jpeg;base64,")
+    assert res_data["treatment"]["whitening"] == 0.8
+
