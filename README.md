@@ -24,7 +24,7 @@
 * [Our Solution](#our-solution)
 * [Key Features](#key-features)
 * [End-to-End Workflow](#end-to-end-workflow)
-* [Screenshots & Demo](#screenshots--demo)
+* [Demo](#demo)
 * [Tech Stack](#tech-stack)
 * [System Architecture](#system-architecture)
 * [Getting Started](#getting-started)
@@ -179,25 +179,6 @@ Generate Treatment Report
 ```
 
 ---
-
-## Screenshots & Demo
-
-Screenshots demonstrating the application's main workflow should be placed in the repository under:
-
-```text
-assets/screenshots/
-```
-
-Recommended screenshots:
-
-| Screenshot         | Description                               |
-| ------------------ | ----------------------------------------- |
-| `screenshot-1.png` | Dashboard / doctor interface              |
-| `screenshot-2.png` | Patient profile and treatment information |
-| `screenshot-3.png` | Treatment timeline                        |
-| `screenshot-4.png` | AI smile visualization                    |
-| `screenshot-5.png` | Actual vs potential progress comparison   |
-| `screenshot-6.png` | Treatment/progress report                 |
 
 ### Demo
 
